@@ -1,24 +1,53 @@
 extern crate rand;
 
 use std::fmt;
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 
 #[cfg(test)]
 mod tests {
     use rand::{thread_rng, Rng};
     #[test]
     fn merging_digest() {
-        let mut td = super::new_merging(1000.0, false);
+        const COMPRESSION: f64 = 100.0;
+        const SAMPLE_SIZE: i64 = 1000;
+
+        let mut td = super::new_merging(COMPRESSION, false);
 
         td.debug = true;
 
         // TODO increase sample size
-        for i in 0..10000 {
+        for i in 0..SAMPLE_SIZE {
             let mut rng = thread_rng();
-            let mut m: f64 = rng.gen_range(0.0, 1.0);
+            let m: f64 = rng.gen_range(0.0, 1.0);
             td.add(m, 1.0);
         }
 
         validate_merging_digest(&mut td);
+
+        const EPSILON: f64 = 0.05;
+
+        let median = td.quantile(0.5);
+        println!("median is {}", median);
+        assert!(
+            (median - 0.5).abs() < EPSILON,
+            "median was {:.5} (expected {:.5})",
+            median,
+            0.5
+        );
+
+        assert!(
+            td.min >= 0.0,
+            "minimum was {:.5} (expected non-negative)",
+            td.min
+        );
+        assert!(td.max < 1.0, "maximum was {:.5} (expected below 1)", td.max);
+        //assert!(td.sum() > 0.0, "sum was {:.5} (expected greater than 0)", td.sum());
+        assert!(
+            td.reciprocal_sum > 0.0,
+            "reciprocal sum was {:.5} (expected greater than 0)",
+            td.reciprocal_sum
+        );
     }
 
     fn validate_merging_digest(td: &mut super::MergingDigest) {
@@ -314,6 +343,74 @@ impl MergingDigest {
         } else {
             return self.max;
         }
+    }
+
+    fn quantile(&mut self, quantile: f64) -> f64 {
+        if quantile < 0.0 || quantile > 1.0 {
+            panic!("quantile out of bounds");
+        }
+
+        self.merge_all_temps();
+
+        let q = quantile * self.main_weight;
+        let mut weight_so_far = 0.0;
+        let mut lower_bound = self.min;
+
+        for i in 0..self.main_centroids.len() {
+            let c = &self.main_centroids[i];
+            let upper_bound = self.centroid_upper_bound(i);
+            if q < weight_so_far + c.weight {
+                // the target quantile is inside this centroid
+                // compute how much of this centroid's weight falls into the quantile
+                let proportion = (q - weight_so_far) / c.weight;
+
+                // and then interpolate what value that corresponds to inside a uniform
+                // distribution
+
+                return lower_bound + (proportion * (upper_bound - lower_bound));
+            }
+
+            // the quantile is above this centroid, so sum the weight and carry on
+            weight_so_far += c.weight;
+            lower_bound = upper_bound;
+        }
+
+        // should never be reached unless empty, since the final comparison is
+        // q <= td.main_weight
+        return std::f64::NAN;
+    }
+
+    // Merge another digest into this one
+    fn merge(&mut self, other: MergingDigest){
+        let old_reciprocal_sum = self.reciprocal_sum;
+
+
+        // centroids are pre-sorted, which is bad for merging
+        // solution: shuffle them and then merge in a random order
+        // see also: quicksort
+
+        let mut shuffled_indices: Vec<usize> = (0..other.main_centroids.len()).collect();
+        let mut rng = thread_rng();
+        shuffled_indices.shuffle(&mut rng);
+
+        for index in shuffled_indices.iter() {
+            // TODO why is this necessary?
+            // why does the collection create a pointer that needs to be explicitly
+            // cast/dereferenced?
+            let i = *index as usize;
+
+            self.add(other.main_centroids[i].mean, other.main_centroids[i].weight);
+        }
+
+
+        // the temp centroids are unsorted so they don't need to be shuffled
+
+        for i in 0..other.temp_centroids.len() -1{
+            self.add(other.temp_centroids[i].mean, other.temp_centroids[i].weight);
+        }
+
+        self.reciprocal_sum = old_reciprocal_sum + other.reciprocal_sum;
+
     }
 }
 
