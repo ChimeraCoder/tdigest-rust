@@ -1,8 +1,20 @@
+extern crate rand;
+
+
+
 #[cfg(test)]
 mod tests {
+    use rand::{thread_rng, Rng};
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    fn mergingDigest() {
+
+        let mut td = super::new_merging(1000.0, false);
+        for  i in 0..100000 {
+            let mut rng = thread_rng();
+            let mut m: f64 = rng.gen_range(0.0,1.0);
+            td.Add(m, 1.0);
+        }
+
     }
 }
 
@@ -15,7 +27,7 @@ struct Centroid {
 
 struct MergingDigest {
     compression: f64,
-    
+
     main_centroids:Vec<Centroid>,
     main_weight:f64,
 
@@ -233,12 +245,13 @@ impl MergingDigest {
 fn new_merging(compression: f64, debug: bool) -> MergingDigest {
 
     let size_bound = ((std::f64::consts::PI * compression/2.0) + 0.5) as i64;
+    let tmp_buffer = estimate_temp_buffer(compression) as usize;
 
     MergingDigest{
         compression: compression,
         main_centroids: vec![],
         main_weight: 0.0,
-        tempCentroids: Vec::with_capacity(estimate_temp_buffer(compression) as usize),
+        tempCentroids: Vec::with_capacity(tmp_buffer),
         temp_weight: 0.0,
         min: std::f64::INFINITY,
         max: std::f64::NEG_INFINITY,
@@ -247,10 +260,11 @@ fn new_merging(compression: f64, debug: bool) -> MergingDigest {
     }
 }
 
-fn estimate_temp_buffer(compression: f64) -> i64 {
+fn estimate_temp_buffer(compression: f64) -> u64 {
+    let tmp = compression as i64;
     let temp_compression = std::cmp::min(925, std::cmp::max(20, compression as i64)) as f64;
 
-    (7.5 + 0.37 * temp_compression - 2e4 * temp_compression * temp_compression) as i64
+    (7.5 + 0.37 * temp_compression - 2e4 * temp_compression * temp_compression) as u64
 }
 
 fn min(a: f64, b: f64) -> f64 {
