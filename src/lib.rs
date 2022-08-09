@@ -142,7 +142,7 @@ impl MergingDigest {
     }
 
     // in-place merge into main_centroids
-    pub fn merge_all_temps(&mut self) {
+    fn merge_all_temps(&mut self) {
         if self.temp_centroids.is_empty() {
             return;
         }
