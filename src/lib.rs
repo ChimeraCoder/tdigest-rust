@@ -15,7 +15,7 @@ mod tests {
         td.debug = true;
 
         // TODO increase sample size
-        for _i in 0..SAMPLE_SIZE {
+        for _ in 0..SAMPLE_SIZE {
             let mut rng = thread_rng();
             let m: f64 = rng.gen_range(0.0, 1.0);
             td.add(m, 1.0);
@@ -259,7 +259,6 @@ impl MergingDigest {
                 if let Some(centroid) = self.main_centroids.last_mut() {
                     centroid.samples.extend_from_slice(&next.samples);
                 }
-
             }
 
             // we did not create a new centroid, so the trailing index of the previous centroid
@@ -371,13 +370,13 @@ impl MergingDigest {
         // centroids are pre-sorted, which is bad for merging
         // solution: shuffle them and then merge in a random order
         // see also: quicksort
-
-        let mut shuffled_indices: Vec<usize> = (0..other.main_centroids.len()).collect();
         let mut rng = thread_rng();
-        shuffled_indices.shuffle(&mut rng);
-
-        for &i in shuffled_indices.iter() {
-            self.add(other.main_centroids[i].mean, other.main_centroids[i].weight);
+        for centroid in other
+            .main_centroids
+            .as_slice()
+            .choose_multiple(&mut rng, other.main_centroids.len())
+        {
+            self.add(centroid.mean, centroid.weight);
         }
 
         // the temp centroids are unsorted so they don't need to be shuffled
@@ -392,7 +391,7 @@ impl MergingDigest {
 pub fn new_merging(compression: f64, debug: bool) -> MergingDigest {
     // upper bound on the size of the centroid limit
     // TODO this can actually be reduced even further
-    let _size_bound = ((std::f64::consts::PI * compression / 2.0) + 0.5) as i64;
+    //let size_bound = ((std::f64::consts::PI * compression / 2.0) + 0.5) as i64;
 
     let tmp_buffer = estimate_temp_buffer(compression) as usize;
 
