@@ -53,20 +53,17 @@ mod tests {
 
         let mut index = 0.0;
         let mut quantile = 0.0;
-        //let mut running_weight = 0.0;
         let end = td.main_centroids.len() - 1;
 
         for (i, centroid) in td.main_centroids.iter().enumerate() {
-            let centroid_weight = centroid.weight;
-            let next_index = td.index_estimate(quantile + centroid_weight / td.main_weight);
+            let next_index = td.index_estimate(quantile + centroid.weight / td.main_weight);
             // Skip the first and the last centroid
             if i > 0 && i < end {
-                assert!(next_index - index <= 1.0 || centroid_weight == 1.0, "\n\n\ncentroid {} of {} is oversized: {}\n\nnext_index: {}, index:{}, centroid_weight: {}\n\n\n", i, td.main_centroids.len(), centroid, next_index, index, centroid_weight);
+                assert!(next_index - index <= 1.0 || centroid.weight == 1.0, "\n\n\ncentroid {} of {} is oversized: {}\n\nnext_index: {}, index:{}, centroid_weight: {}\n\n\n", i, td.main_centroids.len(), centroid, next_index, index, centroid.weight);
             }
 
-            quantile += td.main_centroids[i].weight / td.main_weight;
+            quantile += centroid.weight / td.main_weight;
             index = next_index;
-            //running_weight += td.main_centroids[i].weight;
         }
     }
 }
@@ -137,7 +134,7 @@ impl MergingDigest {
     }
 
     // in-place merge into main_centroids
-    fn merge_all_temps(&mut self) {
+    pub fn merge_all_temps(&mut self) {
         if self.temp_centroids.is_empty() {
             return;
         }
@@ -208,12 +205,9 @@ impl MergingDigest {
                     swapped_centroids = swapped_centroids[1..].to_vec();
                 }
 
-                // TODO another way to satisfy the borrow checker?
-                let next_main_weight = next_main.weight;
-
                 last_merged_index =
-                    self.merge_one(merged_weight, total_weight, last_merged_index, next_main);
-                merged_weight += next_main_weight;
+                    self.merge_one(merged_weight, total_weight, last_merged_index, &next_main);
+                merged_weight += next_main.weight;
             } else {
                 if !actual_main_centroids.is_empty() {
                     swapped_centroids.push(actual_main_centroids[0].clone());
@@ -221,12 +215,9 @@ impl MergingDigest {
                 }
                 tmp_index += 1;
 
-                // TODO another way to satisfy the borrow checker?
-                let next_temp_weight = next_temp.weight;
-
                 last_merged_index =
-                    self.merge_one(merged_weight, total_weight, last_merged_index, next_temp);
-                merged_weight += next_temp_weight;
+                    self.merge_one(merged_weight, total_weight, last_merged_index, &next_temp);
+                merged_weight += next_temp.weight;
             }
         }
 
@@ -240,7 +231,7 @@ impl MergingDigest {
         before_weight: f64,
         total_weight: f64,
         before_index: f64,
-        next: Centroid,
+        next: &Centroid,
     ) -> f64 {
         let next_index = self.index_estimate((before_weight + next.weight) / total_weight);
 
@@ -249,7 +240,7 @@ impl MergingDigest {
             // thereofre we cannot merge into the current centroid
             // or it would become to wide
             // so we will append a new centroid
-            self.main_centroids.push(next);
+            self.main_centroids.push(next.clone());
 
             // return the last index that was merged into the previous centroid
             self.index_estimate(before_weight / total_weight)
@@ -265,13 +256,10 @@ impl MergingDigest {
                 (next.mean - self.main_centroids[main_centroids_len - 1].mean) * next.weight
                     / self.main_centroids[main_centroids_len - 1].weight;
             if self.debug {
-                // TODO how to append succinctly?
-
-                for sample in next.samples.into_iter() {
-                    self.main_centroids[main_centroids_len - 1]
-                        .samples
-                        .push(sample);
+                if let Some(centroid) = self.main_centroids.last_mut() {
+                    centroid.samples.extend_from_slice(&next.samples);
                 }
+
             }
 
             // we did not create a new centroid, so the trailing index of the previous centroid
@@ -328,7 +316,7 @@ impl MergingDigest {
 
         // unreachable, since the final loop compares value < self.max
         //std::f64::NAN
-        unreachable!("final loop compares value < self.max"); // does it?
+        unreachable!("final loop compares value < self.max");
     }
 
     fn centroid_upper_bound(&self, i: usize) -> f64 {
@@ -340,7 +328,11 @@ impl MergingDigest {
     }
 
     pub fn quantile(&mut self, quantile: f64) -> f64 {
-        assert!((0.0..=1.0).contains(&quantile));
+        assert!(
+            (0.0..=1.0).contains(&quantile),
+            "{} is out of the range 0.0, 1.0",
+            quantile
+        );
 
         self.merge_all_temps();
 
@@ -384,17 +376,11 @@ impl MergingDigest {
         let mut rng = thread_rng();
         shuffled_indices.shuffle(&mut rng);
 
-        for index in shuffled_indices.iter() {
-            // TODO why is this necessary?
-            // why does the collection create a pointer that needs to be explicitly
-            // cast/dereferenced?
-            let i = *index as usize;
-
+        for &i in shuffled_indices.iter() {
             self.add(other.main_centroids[i].mean, other.main_centroids[i].weight);
         }
 
         // the temp centroids are unsorted so they don't need to be shuffled
-
         for i in 0..other.temp_centroids.len() - 1 {
             self.add(other.temp_centroids[i].mean, other.temp_centroids[i].weight);
         }
