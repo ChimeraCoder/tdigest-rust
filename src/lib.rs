@@ -54,20 +54,25 @@ mod tests {
         let mut index = 0.0;
         let mut quantile = 0.0;
         //let mut running_weight = 0.0;
+        let last = td.main_centroids.len() - 1;
 
-        for i in 0..td.main_centroids.len() - 1 {
+        for (i, centroid) in td.main_centroids.iter().enumerate() {
+            // Skip the first and the last centroid
+            match i {
+                0 => continue,
+                last => return,
+                _ => {}
+            };
+
             // I would do
             // let c = td.main_centroids[i]
             // but the borrow checker doesn't like that
             // TODO find a way to satisfy borrow checker
 
-            let centroid_weight = td.main_centroids[i].weight;
+            let centroid_weight = centroid.weight;
             let next_index = td.index_estimate(quantile + centroid_weight / td.main_weight);
 
-            // Skip the first and the last centroid
-            if i != 0 && i != td.main_centroids.len() - 1 {
-                assert!(next_index - index <= 1.0 || centroid_weight == 1.0, "\n\n\ncentroid {} of {} is oversized: {}\n\nnext_index: {}, index:{}, centroid_weight: {}\n\n\n", i, td.main_centroids.len(), td.main_centroids[i], next_index, index, centroid_weight);
-            }
+                assert!(next_index - index <= 1.0 || centroid_weight == 1.0, "\n\n\ncentroid {} of {} is oversized: {}\n\nnext_index: {}, index:{}, centroid_weight: {}\n\n\n", i, td.main_centroids.len(), centroid, next_index, index, centroid_weight);
 
             quantile += td.main_centroids[i].weight / td.main_weight;
             index = next_index;
@@ -288,7 +293,7 @@ impl MergingDigest {
 
     // Approximate the index of the centroid that would contain a
     // particular value, at the configured compression level
-    pub fn index_estimate(&mut self, quantile: f64) -> f64 {
+    pub fn index_estimate(&self, quantile: f64) -> f64 {
         let asin = ((2.0 * quantile - 1.0) as f64).asin();
         let scalar = (asin / std::f64::consts::PI) + 0.5;
         self.compression * scalar
