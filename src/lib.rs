@@ -54,25 +54,15 @@ mod tests {
         let mut index = 0.0;
         let mut quantile = 0.0;
         //let mut running_weight = 0.0;
-        let last = td.main_centroids.len() - 1;
+        let end = td.main_centroids.len() - 1;
 
         for (i, centroid) in td.main_centroids.iter().enumerate() {
-            // Skip the first and the last centroid
-            match i {
-                0 => continue,
-                last => return,
-                _ => {}
-            };
-
-            // I would do
-            // let c = td.main_centroids[i]
-            // but the borrow checker doesn't like that
-            // TODO find a way to satisfy borrow checker
-
             let centroid_weight = centroid.weight;
             let next_index = td.index_estimate(quantile + centroid_weight / td.main_weight);
-
+            // Skip the first and the last centroid
+            if i > 0 && i < end {
                 assert!(next_index - index <= 1.0 || centroid_weight == 1.0, "\n\n\ncentroid {} of {} is oversized: {}\n\nnext_index: {}, index:{}, centroid_weight: {}\n\n\n", i, td.main_centroids.len(), centroid, next_index, index, centroid_weight);
+            }
 
             quantile += td.main_centroids[i].weight / td.main_weight;
             index = next_index;
