@@ -1,8 +1,6 @@
-extern crate rand;
-
-use std::fmt;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+use std::fmt;
 
 #[cfg(test)]
 mod tests {
@@ -17,7 +15,7 @@ mod tests {
         td.debug = true;
 
         // TODO increase sample size
-        for i in 0..SAMPLE_SIZE {
+        for _i in 0..SAMPLE_SIZE {
             let mut rng = thread_rng();
             let m: f64 = rng.gen_range(0.0, 1.0);
             td.add(m, 1.0);
@@ -55,7 +53,7 @@ mod tests {
 
         let mut index = 0.0;
         let mut quantile = 0.0;
-        let mut running_weight = 0.0;
+        //let mut running_weight = 0.0;
 
         for i in 0..td.main_centroids.len() - 1 {
             // I would do
@@ -73,13 +71,13 @@ mod tests {
 
             quantile += td.main_centroids[i].weight / td.main_weight;
             index = next_index;
-            running_weight += td.main_centroids[i].weight;
+            //running_weight += td.main_centroids[i].weight;
         }
     }
 }
 
 #[derive(Clone)]
-struct Centroid {
+pub struct Centroid {
     mean: f64,
     weight: f64,
     samples: Vec<f64>,
@@ -98,7 +96,7 @@ impl fmt::Display for Centroid {
     }
 }
 
-struct MergingDigest {
+pub struct MergingDigest {
     compression: f64,
 
     main_centroids: Vec<Centroid>,
@@ -115,7 +113,7 @@ struct MergingDigest {
 }
 
 impl MergingDigest {
-    fn add(&mut self, value: f64, weight: f64) {
+    pub fn add(&mut self, value: f64, weight: f64) {
         if value.is_nan() || value.is_infinite() || weight <= 0.0 {
             panic!("invalid value added")
         }
@@ -135,8 +133,8 @@ impl MergingDigest {
 
         let next = Centroid {
             mean: value,
-            weight: weight,
-            samples: samples,
+            weight,
+            samples,
         };
 
         self.temp_centroids.push(next);
@@ -145,7 +143,7 @@ impl MergingDigest {
 
     // in-place merge into main_centroids
     fn merge_all_temps(&mut self) {
-        if self.temp_centroids.len() == 0 {
+        if self.temp_centroids.is_empty() {
             return;
         }
 
@@ -194,15 +192,15 @@ impl MergingDigest {
                 samples: vec![],
             };
 
-            if swapped_centroids.len() != 0 {
+            if !swapped_centroids.is_empty() {
                 next_main = swapped_centroids[0].clone()
-            } else if actual_main_centroids.len() != 0 {
+            } else if !actual_main_centroids.is_empty() {
                 next_main = actual_main_centroids[0].clone()
             }
 
             if next_main.mean < next_temp.mean {
-                if actual_main_centroids.len() != 0 {
-                    if swapped_centroids.len() != 0 {
+                if !actual_main_centroids.is_empty() {
+                    if !swapped_centroids.is_empty() {
                         // if this came from swap, before merging, we have to save
                         // the next main centroid at the end
 
@@ -222,7 +220,7 @@ impl MergingDigest {
                     self.merge_one(merged_weight, total_weight, last_merged_index, next_main);
                 merged_weight += next_main_weight;
             } else {
-                if actual_main_centroids.len() != 0 {
+                if !actual_main_centroids.is_empty() {
                     swapped_centroids.push(actual_main_centroids[0].clone());
                     actual_main_centroids = actual_main_centroids[1..].to_vec();
                 }
@@ -242,7 +240,7 @@ impl MergingDigest {
         self.main_weight = total_weight;
     }
 
-    fn merge_one(
+    pub fn merge_one(
         &mut self,
         before_weight: f64,
         total_weight: f64,
@@ -251,7 +249,7 @@ impl MergingDigest {
     ) -> f64 {
         let next_index = self.index_estimate((before_weight + next.weight) / total_weight);
 
-        if (next_index - before_index) > 1.0 || (self.main_centroids.len() == 0) {
+        if (next_index - before_index) > 1.0 || self.main_centroids.is_empty() {
             // the new index is far away from the last index of the current centroid
             // thereofre we cannot merge into the current centroid
             // or it would become to wide
@@ -259,7 +257,7 @@ impl MergingDigest {
             self.main_centroids.push(next);
 
             // return the last index that was merged into the previous centroid
-            return self.index_estimate(before_weight / total_weight);
+            self.index_estimate(before_weight / total_weight)
         } else {
             let main_centroids_len = self.main_centroids.len();
 
@@ -284,25 +282,25 @@ impl MergingDigest {
             // we did not create a new centroid, so the trailing index of the previous centroid
             // remains
 
-            return before_index;
+            before_index
         }
     }
 
     // Approximate the index of the centroid that would contain a
     // particular value, at the configured compression level
-    fn index_estimate(&mut self, quantile: f64) -> f64 {
+    pub fn index_estimate(&mut self, quantile: f64) -> f64 {
         let asin = ((2.0 * quantile - 1.0) as f64).asin();
         let scalar = (asin / std::f64::consts::PI) + 0.5;
-        return self.compression * scalar;
+        self.compression * scalar
     }
 
     // Return the approximate percentage of values in the digest that are below
     // the specified value (ie, the approximate cumulative distribution function).
     // Return NaN if the digest is empty.
-    fn cdf(&mut self, value: f64) -> f64 {
+    pub fn cdf(&mut self, value: f64) -> f64 {
         self.merge_all_temps();
 
-        if self.main_centroids.len() == 0 {
+        if self.main_centroids.is_empty() {
             return std::f64::NAN;
         }
 
@@ -334,21 +332,20 @@ impl MergingDigest {
         }
 
         // unreachable, since the final loop compares value < self.max
-        return std::f64::NAN;
+        //std::f64::NAN
+        unreachable!("final loop compares value < self.max"); // does it?
     }
 
     fn centroid_upper_bound(&self, i: usize) -> f64 {
         if i != self.main_centroids.len() - 1 {
-            return (self.main_centroids[i + 1].mean + self.main_centroids[i].mean) / 2.0;
+            (self.main_centroids[i + 1].mean + self.main_centroids[i].mean) / 2.0
         } else {
-            return self.max;
+            self.max
         }
     }
 
-    fn quantile(&mut self, quantile: f64) -> f64 {
-        if quantile < 0.0 || quantile > 1.0 {
-            panic!("quantile out of bounds");
-        }
+    pub fn quantile(&mut self, quantile: f64) -> f64 {
+        assert!((0.0..=1.0).contains(&quantile));
 
         self.merge_all_temps();
 
@@ -377,13 +374,12 @@ impl MergingDigest {
 
         // should never be reached unless empty, since the final comparison is
         // q <= td.main_weight
-        return std::f64::NAN;
+        std::f64::NAN
     }
 
     // Merge another digest into this one
-    fn merge(&mut self, other: MergingDigest){
+    pub fn merge(&mut self, other: MergingDigest) {
         let old_reciprocal_sum = self.reciprocal_sum;
-
 
         // centroids are pre-sorted, which is bad for merging
         // solution: shuffle them and then merge in a random order
@@ -402,19 +398,17 @@ impl MergingDigest {
             self.add(other.main_centroids[i].mean, other.main_centroids[i].weight);
         }
 
-
         // the temp centroids are unsorted so they don't need to be shuffled
 
-        for i in 0..other.temp_centroids.len() -1{
+        for i in 0..other.temp_centroids.len() - 1 {
             self.add(other.temp_centroids[i].mean, other.temp_centroids[i].weight);
         }
 
         self.reciprocal_sum = old_reciprocal_sum + other.reciprocal_sum;
-
     }
 }
 
-fn new_merging(compression: f64, debug: bool) -> MergingDigest {
+pub fn new_merging(compression: f64, debug: bool) -> MergingDigest {
     // upper bound on the size of the centroid limit
     // TODO this can actually be reduced even further
     let _size_bound = ((std::f64::consts::PI * compression / 2.0) + 0.5) as i64;
@@ -422,7 +416,7 @@ fn new_merging(compression: f64, debug: bool) -> MergingDigest {
     let tmp_buffer = estimate_temp_buffer(compression) as usize;
 
     MergingDigest {
-        compression: compression,
+        compression,
         main_centroids: vec![],
         main_weight: 0.0,
         temp_centroids: Vec::with_capacity(tmp_buffer),
@@ -430,11 +424,11 @@ fn new_merging(compression: f64, debug: bool) -> MergingDigest {
         min: std::f64::INFINITY,
         max: std::f64::NEG_INFINITY,
         reciprocal_sum: 0.0,
-        debug: debug,
+        debug,
     }
 }
 
-fn estimate_temp_buffer(compression: f64) -> usize {
+pub fn estimate_temp_buffer(compression: f64) -> usize {
     let temp_compression = std::cmp::min(925, std::cmp::max(20, compression as i64)) as f64;
 
     (7.5 + 0.37 * temp_compression - 2e-4 * temp_compression * temp_compression) as usize
@@ -444,12 +438,12 @@ fn min(a: f64, b: f64) -> f64 {
     if a < b {
         return a;
     }
-    return b;
+    b
 }
 
 fn max(a: f64, b: f64) -> f64 {
     if a > b {
         return a;
     }
-    return b;
+    b
 }
