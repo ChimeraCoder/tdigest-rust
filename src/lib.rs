@@ -106,9 +106,10 @@ pub struct MergingDigest {
 
 impl MergingDigest {
     pub fn add(&mut self, value: f64, weight: f64) {
-        if value.is_nan() || value.is_infinite() || weight <= 0.0 {
-            panic!("invalid value added")
-        }
+        assert!(
+            value.is_normal() && value.is_sign_positive(),
+            "invalid value added"
+        );
 
         if self.temp_centroids.len() == self.temp_centroids.capacity() {
             self.merge_all_temps();
