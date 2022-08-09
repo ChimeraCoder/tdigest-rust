@@ -31,11 +31,18 @@ struct MergingDigest {
 
 impl MergingDigest {
     fn Add(&mut self, value: f64, weight: f64){
-        //TODO check for invalid weight
+
+        if value.is_nan() || value.is_infinite() || weight <= 0.0 {
+            panic!("invalid value added")
+        }
 
         if self.tempCentroids.len() == self.tempCentroids.capacity() {
             self.merge_all_temps();
         }
+
+        self.min = min(self.min, value);
+        self.max= max(self.max, value);
+        self.reciprocal_sum += (1.0 / value) * weight;
     }
 
     // in-place merge into main_centroids
@@ -169,6 +176,58 @@ impl MergingDigest {
         return self.compression * (asin + 0.5);
 
     }
+
+
+    // Return the approximate percentage of values in the digest that are below
+    // the specified value (ie, the approximate cumulative distribution function).
+    // Return NaN if the digest is empty.
+    fn CDF(&mut self, value: f64) -> f64 {
+        self.merge_all_temps();
+
+        if self.main_centroids.len() == 0{
+            return std::f64::NAN;
+        }
+
+        if value <= self.min {
+            return 0.0;
+        }
+
+        if value >= self.max {
+            return 1.0;
+        }
+
+        let mut weight_so_far = 0.0;
+        let mut lowerBound = self.min;
+
+        for (i, c) in self.main_centroids.clone().into_iter().enumerate() {
+            let upperBound = self.centroidUpperBound(i);
+            if value < upperBound {
+                // the value falls inside the bounds of this centroid
+                // based on the assumed uniform distribution, we calculate how much
+                // of this centroid's weight is below the value
+
+                weight_so_far += c.weight * (value - lowerBound) / (upperBound - lowerBound);
+                return weight_so_far / (self.main_weight as f64);
+            }
+
+            // the value is above this centroid, so add the weight and move on
+            weight_so_far += c.weight;
+            lowerBound = upperBound;
+        }
+
+        // unreachable, since the final loop compares value < self.max
+        return std::f64::NAN;
+
+    }
+
+    fn centroidUpperBound(&self, i: usize) -> f64 {
+        if i != self.main_centroids.len() -1 {
+            return (self.main_centroids[i+1].mean + self.main_centroids[i].mean)/2.0
+        } else {
+            return self.max;
+        }
+    }
+
 }
 
 fn new_merging(compression: f64, debug: bool) -> MergingDigest {
@@ -192,4 +251,18 @@ fn estimate_temp_buffer(compression: f64) -> i64 {
     let temp_compression = std::cmp::min(925, std::cmp::max(20, compression as i64)) as f64;
 
     (7.5 + 0.37 * temp_compression - 2e4 * temp_compression * temp_compression) as i64
+}
+
+fn min(a: f64, b: f64) -> f64 {
+    if a < b {
+        return a;
+    }
+    return b;
+}
+
+fn max(a: f64, b: f64) -> f64 {
+    if a > b {
+        return a;
+    }
+    return b;
 }
