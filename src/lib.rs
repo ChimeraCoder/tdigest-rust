@@ -24,7 +24,7 @@ struct MergingDigest {
 
     min:f64,
     max:f64,
-    reciprocalSum:f64,
+    reciprocal_sum:f64,
 
     debug:bool,
 }
@@ -123,11 +123,11 @@ impl MergingDigest {
         self.main_weight = total_weight;
     }
 
-    fn mergeOne(&mut self, beforeWeight: f64, totalWeight: f64, beforeIndex: f64, next: Centroid) ->f64{
+    fn mergeOne(&mut self, before_weight: f64, total_weight: f64, before_index: f64, next: Centroid) ->f64{
 
-        let next_index = self.indexEstimate((beforeWeight + next.weight) / totalWeight);
+        let next_index = self.indexEstimate((before_weight + next.weight) / total_weight);
 
-        if (next_index - beforeIndex) > 1.0 || (self.main_centroids.len() == 0) {
+        if (next_index - before_index) > 1.0 || (self.main_centroids.len() == 0) {
             // the new index is far away from the last index of the current centroid
             // thereofre we cannot merge into the current centroid
             // or it would become to wide
@@ -135,7 +135,7 @@ impl MergingDigest {
             self.main_centroids.push(next);
 
             // return the last index that was merged into the previous centroid
-            return self.indexEstimate(beforeWeight/totalWeight);
+            return self.indexEstimate(before_weight/total_weight);
         } else {
 
             let main_centroids_len = self.main_centroids.len();
@@ -159,7 +159,7 @@ impl MergingDigest {
             // we did not create a new centroid, so the trailing index of the previous centroid
             // remains
 
-            return beforeIndex;
+            return before_index;
         }
 
     }
@@ -183,7 +183,7 @@ fn new_merging(compression: f64, debug: bool) -> MergingDigest {
         temp_weight: 0.0,
         min: std::f64::INFINITY,
         max: std::f64::NEG_INFINITY,
-        reciprocalSum: 0.0,
+        reciprocal_sum: 0.0,
         debug: debug,
     }
 }
