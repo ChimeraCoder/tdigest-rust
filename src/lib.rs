@@ -381,8 +381,8 @@ impl MergingDigest {
         }
 
         // the temp centroids are unsorted so they don't need to be shuffled
-        for i in 0..other.temp_centroids.len() - 1 {
-            self.add(other.temp_centroids[i].mean, other.temp_centroids[i].weight);
+        for temp_centroid in other.temp_centroids.iter() {
+            self.add(temp_centroid.mean, temp_centroid.weight);
         }
 
         self.reciprocal_sum = old_reciprocal_sum + other.reciprocal_sum;
