@@ -134,7 +134,7 @@ impl MergingDigest {
     }
 
     // in-place merge into main_centroids
-    fn merge_all_temps(&mut self) {
+    pub fn merge_all_temps(&mut self) {
         if self.temp_centroids.is_empty() {
             return;
         }
@@ -204,7 +204,6 @@ impl MergingDigest {
                 } else {
                     swapped_centroids = swapped_centroids[1..].to_vec();
                 }
-
 
                 last_merged_index =
                     self.merge_one(merged_weight, total_weight, last_merged_index, &next_main);
@@ -317,7 +316,7 @@ impl MergingDigest {
 
         // unreachable, since the final loop compares value < self.max
         //std::f64::NAN
-        unreachable!("final loop compares value < self.max"); // does it?
+        unreachable!("final loop compares value < self.max");
     }
 
     fn centroid_upper_bound(&self, i: usize) -> f64 {
@@ -329,7 +328,11 @@ impl MergingDigest {
     }
 
     pub fn quantile(&mut self, quantile: f64) -> f64 {
-        assert!((0.0..=1.0).contains(&quantile));
+        assert!(
+            (0.0..=1.0).contains(&quantile),
+            "{} is out of the range 0.0, 1.0",
+            quantile
+        );
 
         self.merge_all_temps();
 
@@ -373,17 +376,11 @@ impl MergingDigest {
         let mut rng = thread_rng();
         shuffled_indices.shuffle(&mut rng);
 
-        for &index in shuffled_indices.iter() {
-            // TODO why is this necessary?
-            // why does the collection create a pointer that needs to be explicitly
-            // cast/dereferenced?
-            let i = index as usize;
-
+        for &i in shuffled_indices.iter() {
             self.add(other.main_centroids[i].mean, other.main_centroids[i].weight);
         }
 
         // the temp centroids are unsorted so they don't need to be shuffled
-
         for i in 0..other.temp_centroids.len() - 1 {
             self.add(other.temp_centroids[i].mean, other.temp_centroids[i].weight);
         }
