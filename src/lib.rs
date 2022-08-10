@@ -2,11 +2,57 @@ use rand::seq::SliceRandom;
 use rand::thread_rng;
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+use serde_json;
+
 #[cfg(test)]
 mod tests {
     use rand::{thread_rng, Rng};
     const COMPRESSION: f64 = 100.0;
     const SAMPLE_SIZE: i64 = 1000;
+
+    fn assert_epsilon(x: f64, y: f64) {
+        const EPSILON: f64 = 0.01;
+        assert!((x - y).abs() < EPSILON);
+    }
+
+    #[test]
+    fn serialize_deserialize() {
+        let mut td = super::new_merging(COMPRESSION, false);
+
+        td.debug = true;
+        for _i in 0..SAMPLE_SIZE {
+            let mut rng = thread_rng();
+            let m: f64 = rng.gen_range(0.0, 1.0);
+            td.add(m, 1.0);
+        }
+
+        let bts = td.wire_encode();
+
+        let result = super::wire_decode(&bts);
+
+        assert_epsilon(td.min, result.min);
+        assert_epsilon(td.max, result.max);
+        assert_epsilon(td.main_weight, result.main_weight);
+        assert_epsilon(td.temp_weight, result.temp_weight);
+        assert_epsilon(td.compression, result.compression);
+        assert_epsilon(td.reciprocal_sum, result.reciprocal_sum);
+        assert_eq!(td.debug, result.debug);
+
+        assert_eq!(td.main_centroids.len(), result.main_centroids.len());
+        assert_eq!(td.temp_centroids.len(), result.temp_centroids.len());
+
+        let main_centroids = td.main_centroids.iter().zip(result.main_centroids.iter());
+
+        for (tdc, rc) in main_centroids {
+            assert_epsilon(tdc.mean, rc.mean);
+            assert_epsilon(tdc.weight, rc.weight);
+            let samples = tdc.samples.iter().zip(rc.samples.iter());
+            for (&s1, &s2) in samples {
+                assert_epsilon(s1, s2);
+            }
+        }
+    }
 
     #[test]
     fn invalid_values() {
@@ -61,7 +107,6 @@ mod tests {
         const EPSILON: f64 = 0.05;
 
         let median = td.quantile(0.5);
-        println!("median is {}", median);
         assert!(
             (median - 0.5).abs() < EPSILON,
             "median was {:.5} (expected {:.5})",
@@ -103,7 +148,7 @@ mod tests {
     }
 }
 
-#[derive(Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub struct Centroid {
     mean: f64,
     weight: f64,
@@ -123,6 +168,7 @@ impl fmt::Display for Centroid {
     }
 }
 
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct MergingDigest {
     compression: f64,
 
@@ -261,7 +307,7 @@ impl MergingDigest {
         self.main_weight = total_weight;
     }
 
-    pub fn merge_one(
+    fn merge_one(
         &mut self,
         before_weight: f64,
         total_weight: f64,
@@ -421,6 +467,21 @@ impl MergingDigest {
 
         self.reciprocal_sum = old_reciprocal_sum + other.reciprocal_sum;
     }
+
+    fn wire_encode(&self) -> Vec<u8> {
+        let bts = serde_json::to_vec(self);
+
+        let bts = match bts {
+            Ok(b) => b,
+            Err(error) => panic!("could not serialize: {}", error),
+        };
+        bts
+    }
+}
+
+fn wire_decode(j: &[u8]) -> MergingDigest {
+    let md: MergingDigest = serde_json::from_slice(j).unwrap();
+    md
 }
 
 pub fn new_merging(compression: f64, debug: bool) -> MergingDigest {
