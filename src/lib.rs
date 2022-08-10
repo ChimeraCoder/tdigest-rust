@@ -5,11 +5,46 @@ use std::fmt;
 #[cfg(test)]
 mod tests {
     use rand::{thread_rng, Rng};
+    const COMPRESSION: f64 = 100.0;
+    const SAMPLE_SIZE: i64 = 1000;
+
+    #[test]
+    fn invalid_values() {
+        const VALID_VALUE: f64 = 5.0;
+        const VALID_WEIGHT: f64 = 2.0;
+
+        let invalid_values: Vec<f64> = vec![f64::NEG_INFINITY, f64::INFINITY, f64::NAN];
+        let invalid_weights: Vec<f64> = vec![0.0, f64::NEG_INFINITY];
+
+        let iv: Vec<(f64, f64)> = invalid_values
+            .into_iter()
+            .map(|v: f64| -> (f64, f64) { (v, VALID_WEIGHT) })
+            .collect();
+        let iw: Vec<(f64, f64)> = invalid_weights
+            .into_iter()
+            .map(|w| (VALID_VALUE, w))
+            .collect();
+
+        let mut inputs = Vec::with_capacity(iv.len() + iw.len());
+        inputs.extend(iv);
+        inputs.extend(iw);
+
+        for (v, w) in inputs {
+            let result = std::panic::catch_unwind(|| {
+                let mut td = super::new_merging(COMPRESSION, false);
+                td.add(v, w);
+            });
+            assert!(
+                result.is_err(),
+                "expected to panic on input (value: {}, weight: {}) but did not",
+                v,
+                w
+            );
+        }
+    }
+
     #[test]
     fn merging_digest() {
-        const COMPRESSION: f64 = 100.0;
-        const SAMPLE_SIZE: i64 = 1000;
-
         let mut td = super::new_merging(COMPRESSION, false);
 
         td.debug = true;
@@ -259,7 +294,6 @@ impl MergingDigest {
                 if let Some(centroid) = self.main_centroids.last_mut() {
                     centroid.samples.extend_from_slice(&next.samples);
                 }
-
             }
 
             // we did not create a new centroid, so the trailing index of the previous centroid
