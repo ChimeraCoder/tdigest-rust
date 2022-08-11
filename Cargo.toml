@@ -2,6 +2,7 @@
 
 members = [
 	"examples/tdigest-examples",
+	"examples/benchmark-example",
 ]
 
 default-members = [

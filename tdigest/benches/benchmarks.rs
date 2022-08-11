@@ -5,7 +5,7 @@ use rand::distributions::{Distribution, Uniform};
 fn criterion_benchmark(c: &mut Criterion){
     const COMPRESSION: f64 = 100.0;
 
-    let mut td = tdigest::new_merging(COMPRESSION, false);
+    let mut td = tdigest::new_merging(COMPRESSION);
     let mut rng = rand::thread_rng();
     let between = Uniform::from(0.0..1.0);
 

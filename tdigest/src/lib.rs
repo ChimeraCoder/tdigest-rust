@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn serialize_deserialize() {
-        let mut td = super::new_merging(COMPRESSION, false);
+        let mut td = super::new_merging(COMPRESSION);
 
         td.debug = true;
         for _i in 0..SAMPLE_SIZE {
@@ -77,7 +77,7 @@ mod tests {
 
         for (v, w) in inputs {
             let result = std::panic::catch_unwind(|| {
-                let mut td = super::new_merging(COMPRESSION, false);
+                let mut td = super::new_merging(COMPRESSION);
                 td.add(v, w);
             });
             assert!(
@@ -91,7 +91,7 @@ mod tests {
 
     #[test]
     fn merging_digest() {
-        let mut td = super::new_merging(COMPRESSION, false);
+        let mut td = super::new_merging(COMPRESSION);
 
         td.debug = true;
 
@@ -186,6 +186,16 @@ pub struct MergingDigest {
 }
 
 impl MergingDigest {
+
+    // Enables (or disables) debug mode, for debugging only.
+    // This should be called before any calls to add().
+    // Debug mode will store all values in-memory, which will degrade performance
+    // and defeat the point of using a tdigest.
+    pub fn debug(&mut self, b: bool){
+        self.debug = b;
+    }
+
+
     pub fn add(&mut self, value: f64, weight: f64) {
         assert!(
             value.is_normal() && weight.is_normal() && weight.is_sign_positive(),
@@ -497,7 +507,7 @@ fn wire_decode(j: &[u8]) -> MergingDigest {
     md
 }
 
-pub fn new_merging(compression: f64, debug: bool) -> MergingDigest {
+pub fn new_merging(compression: f64) -> MergingDigest {
     // upper bound on the size of the centroid limit
     // TODO this can actually be reduced even further
     //let size_bound = ((std::f64::consts::PI * compression / 2.0) + 0.5) as i64;
@@ -513,7 +523,7 @@ pub fn new_merging(compression: f64, debug: bool) -> MergingDigest {
         min: std::f64::INFINITY,
         max: std::f64::NEG_INFINITY,
         reciprocal_sum: 0.0,
-        debug,
+        debug: false,
     }
 }
 
