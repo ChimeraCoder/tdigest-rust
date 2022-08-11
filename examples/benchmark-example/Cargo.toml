@@ -1,0 +1,10 @@
+[package]
+name = "benchmark-example"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+
+[dependencies]
+tdigest = {path = "../../tdigest" }
+rand = "0.7.3"
