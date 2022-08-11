@@ -478,6 +478,18 @@ impl MergingDigest {
         };
         bts
     }
+
+    pub fn min(&self) -> f64 {
+        self.min
+    }
+
+    pub fn max(&self) -> f64 {
+        self.max
+    }
+
+    pub fn reciprocal_sum(&self) -> f64 {
+        self.reciprocal_sum
+    }
 }
 
 fn wire_decode(j: &[u8]) -> MergingDigest {
