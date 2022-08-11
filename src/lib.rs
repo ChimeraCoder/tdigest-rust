@@ -188,7 +188,7 @@ pub struct MergingDigest {
 impl MergingDigest {
     pub fn add(&mut self, value: f64, weight: f64) {
         assert!(
-            value.is_normal() && value.is_sign_positive(),
+            value.is_normal() && weight.is_normal() && weight.is_sign_positive(),
             "invalid value added"
         );
 
