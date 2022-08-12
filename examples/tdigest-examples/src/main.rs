@@ -9,7 +9,9 @@ fn generate_rand() -> f64 {
 }
 
 fn main(){
-    const COMPRESSION: f64 = 10.0;
+    // The compression factor allows you to trade off precision
+    // for memory usage.
+    const COMPRESSION: f64 = 20.0;
     let mut td = tdigest::new_merging(COMPRESSION, false);
     for _ in 0..1000 {
         td.add(generate_rand(), 1.0);
