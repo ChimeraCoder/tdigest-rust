@@ -3,7 +3,6 @@ use rand::thread_rng;
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
-use serde_json;
 
 #[cfg(test)]
 mod tests {
@@ -479,7 +478,7 @@ impl MergingDigest {
         self.reciprocal_sum = old_reciprocal_sum + other.reciprocal_sum;
     }
 
-    fn wire_encode(&self) -> Vec<u8> {
+    pub fn wire_encode(&self) -> Vec<u8> {
         let bts = serde_json::to_vec(self);
 
         let bts = match bts {
@@ -502,7 +501,7 @@ impl MergingDigest {
     }
 }
 
-fn wire_decode(j: &[u8]) -> MergingDigest {
+pub fn wire_decode(j: &[u8]) -> MergingDigest {
     let md: MergingDigest = serde_json::from_slice(j).unwrap();
     md
 }
