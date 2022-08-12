@@ -528,6 +528,7 @@ pub fn new_merging(compression: f64) -> MergingDigest {
 }
 
 pub fn estimate_temp_buffer(compression: f64) -> usize {
+    // https://arxiv.org/abs/1902.04023
     let temp_compression = std::cmp::min(925, std::cmp::max(20, compression as i64)) as f64;
 
     (7.5 + 0.37 * temp_compression - 2e-4 * temp_compression * temp_compression) as usize
