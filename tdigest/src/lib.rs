@@ -167,7 +167,7 @@ impl fmt::Display for Centroid {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 pub struct MergingDigest {
     compression: f64,
 
@@ -185,15 +185,13 @@ pub struct MergingDigest {
 }
 
 impl MergingDigest {
-
     // Enables (or disables) debug mode, for debugging only.
     // This should be called before any calls to add().
     // Debug mode will store all values in-memory, which will degrade performance
     // and defeat the point of using a tdigest.
-    pub fn debug(&mut self, b: bool){
+    pub fn debug(&mut self, b: bool) {
         self.debug = b;
     }
-
 
     pub fn add(&mut self, value: f64, weight: f64) {
         assert!(
